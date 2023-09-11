@@ -16,10 +16,13 @@ use Symfony\Component\Messenger\Middleware\MiddlewareInterface;
 use Symfony\Component\Messenger\Middleware\StackInterface;
 use Symfony\Component\Messenger\Middleware\StackMiddleware;
 use Symfony\Component\Messenger\Middleware\TraceableMiddleware;
+use Symfony\Component\Messenger\Middleware\TraceableStack;
 use Symfony\Component\Messenger\Test\Middleware\MiddlewareTestCase;
 use Symfony\Component\Messenger\Tests\Fixtures\DummyMessage;
 use Symfony\Component\Stopwatch\Stopwatch;
 use Symfony\Component\Stopwatch\StopwatchEvent;
+
+class_exists(TraceableMiddleware::class);
 
 /**
  * @author Maxime Steinhausser <maxime.steinhausser@gmail.com>
@@ -139,5 +142,27 @@ class TraceableMiddlewareTest extends MiddlewareTestCase
 
         $traced->handle($envelope, new StackMiddleware(new \ArrayIterator([null, $middleware])));
         $this->assertSame(1, $middleware->calls);
+    }
+
+    public function testCloneTraceableStack(): void
+    {
+        $middlewareIterator = [
+            $this->createMock(MiddlewareInterface::class),
+            $this->createMock(MiddlewareInterface::class),
+        ];
+
+        $stack = new TraceableStack(
+            new StackMiddleware($middlewareIterator),
+            $this->createMock(Stopwatch::class),
+            'command.bus',
+            'test'
+        );
+
+        $clonedStack = clone $stack;
+
+        $nextFrame = $stack->next();
+        $clonedStackNextFrame = $clonedStack->next();
+
+        self::assertSame($nextFrame, $clonedStackNextFrame);
     }
 }
