@@ -92,6 +92,5 @@ class TraceableStack implements StackInterface
     public function __clone(): void
     {
         $this->stack = clone $this->stack;
-        $this->stopwatch = clone $this->stopwatch;
     }
 }
