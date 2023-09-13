@@ -146,23 +146,16 @@ class TraceableMiddlewareTest extends MiddlewareTestCase
 
     public function testCloneTraceableStack(): void
     {
-        $middlewareIterator = [
+        $stackMiddleware = new StackMiddleware([
             $this->createMock(MiddlewareInterface::class),
             $this->createMock(MiddlewareInterface::class),
-        ];
+        ]);
 
-        $stack = new TraceableStack(
-            new StackMiddleware($middlewareIterator),
-            $this->createMock(Stopwatch::class),
-            'command.bus',
-            'test'
-        );
+        $stopwatch = $this->createMock(Stopwatch::class);
 
-        $clonedStack = clone $stack;
+        $traceableStack = new TraceableStack($stackMiddleware, $stopwatch, 'command.bus', 'test');
+        $clonedStack = clone $traceableStack;
 
-        $nextFrame = $stack->next();
-        $clonedStackNextFrame = $clonedStack->next();
-
-        self::assertSame($nextFrame, $clonedStackNextFrame);
+        self::assertSame($traceableStack->next(), $clonedStack->next());
     }
 }
