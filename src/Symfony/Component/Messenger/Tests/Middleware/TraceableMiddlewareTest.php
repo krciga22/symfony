@@ -153,7 +153,24 @@ class TraceableMiddlewareTest extends MiddlewareTestCase
 
         $stopwatch = $this->createMock(Stopwatch::class);
 
-        $traceableStack = new TraceableStack($stackMiddleware, $stopwatch, 'command.bus', 'test');
+        $series = [
+            [$this->matches('"%sMiddlewareInterface%s" on "command_bus"'), 'messenger.middleware'],
+            [$this->matches('"%sMiddlewareInterface%s" on "command_bus"'), 'messenger.middleware'],
+        ];
+        $stopwatch->expects($this->exactly(2))
+            ->method('start')
+            ->willReturnCallback(function (string $name, string $category = null) use (&$series) {
+                [$constraint, $expectedCategory] = array_shift($series);
+
+                $constraint->evaluate($name);
+                $this->assertSame($expectedCategory, $category);
+
+                return $this->createMock(StopwatchEvent::class);
+            })
+        ;
+        $stopwatch->expects($this->never())->method('stop');
+
+        $traceableStack = new TraceableStack($stackMiddleware, $stopwatch, 'command_bus', 'messenger.middleware');
         $clonedStack = clone $traceableStack;
 
         self::assertSame($traceableStack->next(), $clonedStack->next());
