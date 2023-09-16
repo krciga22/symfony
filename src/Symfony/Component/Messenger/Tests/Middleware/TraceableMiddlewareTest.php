@@ -22,8 +22,6 @@ use Symfony\Component\Messenger\Tests\Fixtures\DummyMessage;
 use Symfony\Component\Stopwatch\Stopwatch;
 use Symfony\Component\Stopwatch\StopwatchEvent;
 
-class_exists(TraceableMiddleware::class);
-
 /**
  * @author Maxime Steinhausser <maxime.steinhausser@gmail.com>
  */
@@ -146,6 +144,9 @@ class TraceableMiddlewareTest extends MiddlewareTestCase
 
     public function testCloneTraceableStack(): void
     {
+        // import TraceableStack
+        class_exists(TraceableMiddleware::class);
+
         $stackMiddleware = new StackMiddleware([
             $this->createMock(MiddlewareInterface::class),
             $this->createMock(MiddlewareInterface::class),
