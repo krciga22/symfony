@@ -142,38 +142,36 @@ class TraceableMiddlewareTest extends MiddlewareTestCase
         $this->assertSame(1, $middleware->calls);
     }
 
-    public function testCloneTraceableStack(): void
+    public function testClonedTraceableStackUnstacksIndependently(): void
     {
         // import TraceableStack
         class_exists(TraceableMiddleware::class);
 
         $stackMiddleware = new StackMiddleware([
+            null,
             $this->createMock(MiddlewareInterface::class),
             $this->createMock(MiddlewareInterface::class),
         ]);
 
         $stopwatch = $this->createMock(Stopwatch::class);
 
-        $series = [
-            [$this->matches('"%sMiddlewareInterface%s" on "command_bus"'), 'messenger.middleware'],
-            [$this->matches('"%sMiddlewareInterface%s" on "command_bus"'), 'messenger.middleware'],
-        ];
-        $stopwatch->expects($this->exactly(2))
-            ->method('start')
-            ->willReturnCallback(function (string $name, string $category = null) use (&$series) {
-                [$constraint, $expectedCategory] = array_shift($series);
-
-                $constraint->evaluate($name);
-                $this->assertSame($expectedCategory, $category);
-
-                return $this->createMock(StopwatchEvent::class);
-            })
-        ;
-        $stopwatch->expects($this->never())->method('stop');
-
         $traceableStack = new TraceableStack($stackMiddleware, $stopwatch, 'command_bus', 'messenger.middleware');
         $clonedStack = clone $traceableStack;
 
-        self::assertSame($traceableStack->next(), $clonedStack->next());
+        $traceableStackMiddleware1 = $traceableStack->next();
+        $traceableStackMiddleware2 = $traceableStack->next();
+        $traceableStackTail = $traceableStack->next();
+        self::assertSame($stackMiddleware, $traceableStackTail);
+
+        // unstack clonedStack independently
+        $clonedStackMiddleware1 = $clonedStack->next();
+        self::assertSame($traceableStackMiddleware1, $clonedStackMiddleware1);
+        self::assertNotSame($traceableStackMiddleware2, $clonedStackMiddleware1);
+
+        $clonedStackMiddleware2 = $clonedStack->next();
+        self::assertSame($traceableStackMiddleware2, $clonedStackMiddleware2);
+
+        $clonedStackTail = $clonedStack->next();
+        self::assertNotSame($stackMiddleware, $clonedStackTail, 'stackMiddleware was also cloned');
     }
 }
