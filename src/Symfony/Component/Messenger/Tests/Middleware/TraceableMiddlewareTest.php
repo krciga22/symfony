@@ -174,4 +174,59 @@ class TraceableMiddlewareTest extends MiddlewareTestCase
         $clonedStackTail = $clonedStack->next();
         self::assertNotSame($stackMiddleware, $clonedStackTail, 'stackMiddleware was also cloned');
     }
+
+    public function testClonedTraceableStackUsesSameStopwatch(): void
+    {
+        // import TraceableStack
+        class_exists(TraceableMiddleware::class);
+
+        $middlewareIterable = [null, $this->createMock(MiddlewareInterface::class)];
+
+        $stackMiddleware = new StackMiddleware($middlewareIterable);
+
+        $stopwatch = $this->createMock(Stopwatch::class);
+        $stopwatch->expects($this->exactly(2))->method('isStarted')->willReturn(true);
+
+        $startSeries = [
+            [$this->matches('"%sMiddlewareInterface%s" on "command_bus"'), 'messenger.middleware'],
+            [$this->identicalTo('Tail on "command_bus"'), 'messenger.middleware'],
+            [$this->matches('"%sMiddlewareInterface%s" on "command_bus"'), 'messenger.middleware'],
+            [$this->identicalTo('Tail on "command_bus"'), 'messenger.middleware'],
+        ];
+        $stopwatch->expects($this->exactly(4))
+            ->method('start')
+            ->willReturnCallback(function (string $name, string $category = null) use (&$startSeries) {
+                [$constraint, $expectedCategory] = array_shift($startSeries);
+
+                $constraint->evaluate($name);
+                $this->assertSame($expectedCategory, $category);
+
+                return $this->createMock(StopwatchEvent::class);
+            })
+        ;
+
+        $stopSeries = [
+            $this->matches('"%sMiddlewareInterface%s" on "command_bus"'),
+            $this->matches('"%sMiddlewareInterface%s" on "command_bus"'),
+        ];
+        $stopwatch->expects($this->exactly(2))
+            ->method('stop')
+            ->willReturnCallback(function (string $name) use (&$stopSeries) {
+                $constraint = array_shift($stopSeries);
+                $constraint->evaluate($name);
+
+                return $this->createMock(StopwatchEvent::class);
+            })
+        ;
+
+        $traceableStack = new TraceableStack($stackMiddleware, $stopwatch, 'command_bus', 'messenger.middleware');
+        $clonedStack = clone $traceableStack;
+
+        // unstack the stacks independently
+        $traceableStack->next();
+        $traceableStack->next();
+
+        $clonedStack->next();
+        $clonedStack->next();
+    }
 }
